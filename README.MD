@@ -48,20 +48,34 @@ DataFilter выполняет **статический анализ строк**
 1.  Установите библиотеку:
 
 ``` bash
-pip install DataFilter
+pip install web-datafilter
 ```
 
 2.  Импортируйте нужные функции:
 
 ``` python
-from datafilter import strSQLICheck, strSSTICheck, strXSSCheck, strMultCheck
+import DataFilter
+
+или
+
+from DataFilter import ...
 ```
 
 ------------------------------------------------------------------------
 
 # Структура репозитория
 
-<br><br><br><br><br><br><br>
+DataFilter<br>
+&nbsp;&nbsp;&nbsp;&nbsp;├── .gitignore<br>
+&nbsp;&nbsp;&nbsp;&nbsp;├── DataFilter.py<br>
+&nbsp;&nbsp;&nbsp;&nbsp;├── LICENCE<br>
+&nbsp;&nbsp;&nbsp;&nbsp;├── README.md<br>
+&nbsp;&nbsp;&nbsp;&nbsp;├── testWebApp.py<br>
+&nbsp;&nbsp;&nbsp;&nbsp;├── database.db<br>
+&nbsp;&nbsp;&nbsp;&nbsp;└── requirements.txt
+
+**testWebApp.py** - тестовое веб-приложение<br>
+**requirements.txt** - нужные для работы тестового веб-приложения библиотеки
 
 ------------------------------------------------------------------------
 
