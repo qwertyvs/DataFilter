@@ -10,9 +10,45 @@ from time import time_ns
 from urllib.parse import unquote
 
 #(redefine these variables inside code depending on cpu) max time to process pattern in seconds
-sqli_patern_time=0.1
-ssti_patern_time=0.1
-xss_patern_time=0.2
+sqli_pattern_time=0.1
+ssti_pattern_time=0.1
+xss_pattern_time=0.2
+
+def set_sqli_timeout(value: float) -> None:
+    """set_sqli_timeout sets global param sqli_pattern_time
+
+    :param value: new sqli_pattern_time
+    :type value: float
+    """
+    global sqli_pattern_time
+    if sqli_pattern_time > 0:
+        sqli_pattern_time = value
+    else:
+        raise DataFilterException("Invalid sqli timeout")
+
+def set_ssti_timeout(value: float) -> None:
+    """set_ssti_timeout sets global param ssti_pattern_time
+
+    :param value: new ssti_pattern_time
+    :type value: float
+    """
+    global ssti_pattern_time
+    if ssti_pattern_time > 0:
+        ssti_pattern_time = value
+    else:
+        raise DataFilterException("Invalid ssti timeout")
+
+def set_xss_timeout(value: float) -> None:
+    """set_xss_timeout sets global param xss_pattern_time
+
+    :param value: new xss_pattern_time
+    :type value: float
+    """
+    global xss_pattern_time
+    if xss_pattern_time > 0:
+        xss_pattern_time = value
+    else:
+        raise DataFilterException("Invalid xss timeout")
 
 #Groups of symbols for quick allowed symbols array assembling
 symbolsDict = {
@@ -270,7 +306,7 @@ def _strSQLICheck(data: str = "", allowedSymbols: str = "") -> filterReport:
 
     def match_add(name: str) -> None:
         try:
-            if _SQLI_FILTERS[name].search(data, timeout = sqli_patern_time):
+            if _SQLI_FILTERS[name].search(data, timeout = sqli_pattern_time):
                 report.detections.append(name)
                 if has_quote:
                     report.issecure = False
@@ -334,7 +370,7 @@ def _strSSTICheck(data: str = "", allowedSymbols: str = "") -> filterReport:
             
     def match_add(name: str) -> None:
         try:
-            if _SSTI_FILTERS[name].search(data, timeout = ssti_patern_time):
+            if _SSTI_FILTERS[name].search(data, timeout = ssti_pattern_time):
                 report.detections.append(name)
                 report.issecure = False
                 report.status = "DETECTED"
@@ -409,7 +445,7 @@ def _strXSSCheck(data: str = "", allowedSymbols: str = "") -> filterReport:
 
     def match_add(name: str) -> None:
         try:
-            if _XSS_FILTERS[name].search(data, timeout = xss_patern_time):
+            if _XSS_FILTERS[name].search(data, timeout = xss_pattern_time):
                 report.detections.append(name)
                 report.issecure = False
                 report.status = "DETECTED"

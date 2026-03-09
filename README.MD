@@ -1,91 +1,351 @@
-# DataFilter
+# DataFilter - документация
 
-## Contents
+**Автор:** qwertyvs<br>**Репозиторий:** https://github.com/qwertyvs/DataFilter
 
-1. [About project](#About-project)
-2. [Project functionality](#Project-functionality)
-3. [Repository structure](#Repository-structure)
-4. [Expected behavior](#Expected-behavior)
-5. [Full documentation](#Full-documentation)
-6. [Contacts](#Contacts)
+## Оглавление
 
----
+* [Кратко о проекте](#Кратко-о-проекте)
+* [Установка](#установка)
+* [Структура репозитория](#структура-репозитория)
+* [Ожидаемое поведение](#ожидаемое-поведение)
 
-## About project
+  * [Обычный пользователь](#обычный-пользователь)
+  * [Нарушитель (злоумышленник)](#нарушитель-злоумышленник)
+  * [Значения статусов](#значения-статусов)
+* [Глобальные параметры](#глобальные-параметры)
+* [Классы](#классы)
 
-**DataFilter** is a single-file library written in Python used for:
+  * [DataFilterException](#datafilterexception)
+  * [filterReport](#filterreport)
+* [Функции](#функции)
 
-1. Checking whether data includes SQLi techniques
-2. Providing detailed information about the safety of data
-3. Helping to temporarily/permanently block potential attackers, improving safety
+  * [strSQLICheck()](#strsqlicheck)
+  * [strSSTICheck()](#strssticheck)
+  * [strXSSCheck()](#strxsscheck)
+  * [strMultCheck()](#strmultcheck)
+* [Пример использования](#пример-использования)
+* [Обратная связь](#обратная-связь)
 
-**The core idea of the project** is to improve the safety of apps that use sql databases and informing the service about detections so it can take action
+# Кратко о проекте
 
-DataFilter **is not able** to fully protect service, input escaping is still required and highly recommended!
+**DataFilter** - это лёгкая библиотека на Python, предназначенная для
+анализа входных данных и обнаружения возможных попыток эксплуатации
+распространённых веб‑уязвимостей.
 
----
+Библиотека умеет обнаруживать признаки:
 
-## Project functionality
+-   SQL Injection (SQLi)
+-   Server-Side Template Injection (SSTI)
+-   Cross-Site Scripting (XSS)
 
-function **strSQLICheck**
+DataFilter выполняет **статический анализ строк** и ищет сигнатуры,
+характерные для вредоносных полезных нагрузок.
 
-- Analyzes the provided data using basic-heuristic and pattern-based strategy
-- Generates a report upon return that includes useful and overall safety information about provided data
+------------------------------------------------------------------------
 
----
+# Установка
 
-## Repository structure
+1.  Установите библиотеку:
 
-Below the repository directory tree is provided (without cache files like `__pycache__`):
-
-```
-    DataFilter
-    ├── docs
-    │   └── docs.odt
-    ├── testapps
-    │   ├── appSQLInoFiltering
-    │   │   ├── app.py
-    │   │   ├── database.db
-    │   │   └── requirements.txt
-    │   └── appSQLIwithFiltering
-    │       ├── app.py
-    │       ├── database.db
-    │       ├── DataFilter.py
-    │       └── requirements.txt
-    ├── DataFilter.py
-    ├── LICENCE
-    └── README.md
-
-
+``` bash
+pip install DataFilter
 ```
 
-- **`testapps`** — 2 test apps without input escaping: **appSQLInoFiltering** with DataFilter not being used, **appSQLIwithFiltering** with DataFilter used; start them with commands below, ensure you are in the app’s directory
+2.  Импортируйте нужные функции:
+
+``` python
+from datafilter import strSQLICheck, strSSTICheck, strXSSCheck, strMultCheck
 ```
-python -m pip install --upgrade pip
-python -m pip install requirements.txt
-python app.py
-``` 
-After that use any SQLi testing utility you like (for example sqlmap)
+
+------------------------------------------------------------------------
+
+# Структура репозитория
+
+<br><br><br><br><br><br><br>
+
+------------------------------------------------------------------------
+
+# Ожидаемое поведение
+
+## Обычный пользователь
+
+Обычный пользователь отправляет обычные значения:
+
+-   имена пользователей
+-   email
+-   короткие текстовые поля
+
+В этом случае библиотека должна вернуть:
+
+    status = OK
+    issecure = True
+
+## Нарушитель (злоумышленник)
+
+Злоумышленник может отправлять вредоносные полезные нагрузки, например:
+
+    1' OR 1=1 --
+    <script>alert(1)</script>
+    {{7*7}}
+
+В таких случаях библиотека должна вернуть:
+
+    status = FOUND
+    или
+    status = DETECTED
+
+### Значения статусов
+
+Статус: Значение
+
+OK: Подозрительных паттернов не обнаружено<br>
+FOUND*: Обнаружены подозрительные признаки<br>
+DETECTED: Высокая вероятность вредоносной нагрузки
+
+\* **В strSQLICheck означает, что найдено ключевое слово sql, в контексте проверки осмысленного текста на английском языке является защитой от ложных срабатываний**
+
+------------------------------------------------------------------------
+
+# Глобальные параметры
+
+В библиотеке есть три глобальных параметра, отвечающих за защиту от
+слишком долгого выполнения регулярных выражений.
+
+    sqli_patern_time = 0.1
+    ssti_patern_time = 0.1
+    xss_patern_time = 0.2
+
+Эти значения задают **максимальное время выполнения одного
+regex‑паттерна в секундах**.
+
+Если выполнение превышает тайм‑аут, библиотека помечает это как:
+
+    dos_payload
+
+Это может указывать на попытку **ReDoS‑атаки** (нагрузки через сложные
+регулярные выражения).
+
+Если процессор досточно мощный можно уменьшить, переопределив в программе
+
+------------------------------------------------------------------------
+
+# Классы
+
+## DataFilterException
+
+Внутреннее исключение библиотеки.
+
+Возникает если:
+
+-   переданы неверные типы данных
+-   произошла внутренняя ошибка
+
+Пример сообщения:
+
+    INVALID_INPUT: expected str
+
+------------------------------------------------------------------------
+
+## filterReport
+
+Структура отчёта, возвращаемая всеми функциями проверки.
+
+Поля:
+
+Поле: Описание
+
+data: исходная проверенная строка<br>
+type: тип проверки (SQLI / SSTI / XSS)<br>
+status: итоговый статус<br>
+detections: список сработавших сигнатур<br>
+issecure: True если строка считается безопасной<br>
+processtime: время выполнения проверки в наносекундах
+
+------------------------------------------------------------------------
+
+# Функции
+
+В библиотеке есть три глобальных таймаута, которые определяют максимальное время выполнения одного regex-паттерна для каждой категории проверки. Вы можете изменить их в рантайме с помощью специальных функций.
+
+## set_sqli_timeout(value: float)
+
+Устанавливает таймаут для проверки SQL Injection (SQLi).
+
+**Параметры:**
+
+* `value` — максимальное время выполнения одного паттерна в секундах. Должно быть положительным числом.
+
+**Пример использования:**
+
+```python
+from DataFilter import set_sqli_timeout
+
+set_sqli_timeout(0.5)  # Таймаут 0.5 секунды для SQLi
+```
 
 ---
 
-## Expected behavior
+## set_ssti_timeout(value: float)
 
-- **Normal user**: interacts with service without any problem, may sometimes trigger filter, for example by using ' or " in password when registering
-- **Attacker**: tries to use SQLi -> filter detects SQLi usage -> (programmer defined behavior) service takes action (for example temporary ban if 3+ SQLi attempts detected)
+Устанавливает таймаут для проверки Server-Side Template Injection (SSTI).
+
+**Параметры:**
+
+* `value` — максимальное время выполнения одного паттерна в секундах. Должно быть положительным числом.
+
+**Пример использования:**
+
+```python
+from DataFilter import set_ssti_timeout
+
+set_ssti_timeout(0.3)  # Таймаут 0.3 секунды для SSTI
+```
 
 ---
 
-## Full documentation
+## set_xss_timeout(value: float)
 
-You can find full documentation in docs.odt file [here](https://github.com/Mavment/DataFilter/tree/master/docs)
+Устанавливает таймаут для проверки Cross-Site Scripting (XSS).
 
-Full documentation includes expected behavior of data checker, strategies used, report structure and a lot more!
+**Параметры:**
+
+* `value` — максимальное время выполнения одного паттерна в секундах. Должно быть положительным числом.
+
+**Пример использования:**
+
+```python
+from DataFilter import set_xss_timeout
+
+set_xss_timeout(0.2)  # Таймаут 0.2 секунды для XSS
+```
 
 ---
 
-## Contacts
+После изменения таймаута, соответствующие функции (`strSQLICheck`, `strSSTICheck`, `strXSSCheck`) будут использовать новое значение
 
-- It’s well-known that no solution is perfect and DataFilter is not an exception, you may ask me freely if you have any questions/suggestions, I'll answer whenever I'll be free (usually not more than 1 business day)
+---
 
-Thanks for using **DataFilter**!
+## strSQLICheck()
+
+Проверяет строку на признаки SQL Injection.
+
+Параметры:
+
+    data : str
+    allowedSymbols : str
+
+Если параметр `allowedSymbols` задан и строка содержит символ вне этого
+набора, функция сразу возвращает:
+
+    status = DETECTED
+    detections = ["banned_symbol_usage"]
+
+Функция ищет такие признаки SQL‑инъекций как:
+
+-   UNION SELECT
+-   SQL комментарии
+-   логические таутологии
+-   time‑based атаки
+-   ключевые SQL слова
+
+Возвращает объект `filterReport`.
+
+------------------------------------------------------------------------
+
+## strSSTICheck()
+
+Проверяет строку на Server-Side Template Injection.
+
+Обнаруживает конструкции, используемые в шаблонизаторах.
+
+Примеры:
+
+    {{ ... }}
+    {% ... %}
+    ${ ... }
+    #{ ... }
+
+Также ищет опасные вызовы:
+
+    eval()
+    exec()
+    os.popen()
+    Runtime.getRuntime()
+
+Возвращает `filterReport`.
+
+------------------------------------------------------------------------
+
+## strXSSCheck()
+
+Проверяет строку на признаки Cross-Site Scripting.
+
+Перед анализом строка проходит нормализацию:
+
+1.  URL‑декодирование
+2.  декодирование HTML‑сущностей
+3.  удаление управляющих символов
+4.  нормализация Unicode
+
+После этого выполняется поиск таких паттернов как:
+
+-   `<script>`
+-   протокол `javascript:`
+-   обработчики событий `onload=`
+-   `<iframe>`
+-   теги `svg` или `math`
+
+Возвращает `filterReport`.
+
+------------------------------------------------------------------------
+
+## strMultCheck()
+
+Позволяет выполнить несколько проверок сразу.
+
+Пример:
+
+``` python
+strMultCheck(data, modes=["SQLI","SSTI","XSS"])
+```
+
+Возвращает словарь:
+
+    {
+     "SQLI": filterReport,
+     "SSTI": filterReport,
+     "XSS": filterReport,
+     "total_status": str,
+     "total_issecure": bool,
+     "total_processtime": int
+    }
+
+------------------------------------------------------------------------
+
+# Пример использования
+
+``` python
+from DataFilter import strMultCheck
+
+payload = "1' OR 1=1 --"
+
+result = strMultCheck(payload)
+
+print(result["SQLI"].status)
+print(result["total_status"])
+```
+
+------------------------------------------------------------------------
+
+# Обратная связь
+
+## Контакты
+
+Пожалуйста помните, что ни одно решение не является идеальным, и
+**DataFilter** - не исключение.
+
+Если у вас есть вопросы или предложения, вы можете написать мне.\
+Я постараюсь ответить как только появится возможность (обычно в течение
+одного рабочего дня).
+
+**Спасибо за использование DataFilter!**
