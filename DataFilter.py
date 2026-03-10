@@ -7,7 +7,7 @@ Link to repository: https://github.com/qwertyvs/DataFilter
 
 import regex as re, html, unicodedata, hashlib
 from time import time_ns
-from urllib.parse import unquote
+from urllib.parse import unquote_plus
 
 #(redefine these variables inside code depending on cpu) max time to process pattern in seconds
 sqli_pattern_time=0.1
@@ -183,22 +183,34 @@ _SQLI_FILTERS = {
 
 #SSTI regex
 _SSTI_FILTERS = {
-    "python_magic_attrs": re.compile(r"__class__|__mro__|__subclasses__|__globals__|__init__"),
-    "python_danger_calls": re.compile(r"os\.popen|subprocess|eval\(|exec\(|open\(", re.IGNORECASE),
-    "java_runtime": re.compile(r"Runtime\.getRuntime|ProcessBuilder|Class\.forName", re.IGNORECASE),
-    "php_exec": re.compile(r"shell_exec|passthru|system\(|exec\(", re.IGNORECASE),
-    "node_constructor_rce": re.compile(r"constructor\s*\.\s*constructor", re.IGNORECASE),
-    "ruby_eval": re.compile(r"instance_eval|class_eval|Kernel\.", re.IGNORECASE),
-    "double_curly": re.compile(r"\{\{.*?\}\}", re.DOTALL),
-    "percent_blocks": re.compile(r"\{\%.*?\%\}", re.DOTALL),
-    "angle_percent": re.compile(r"<%.*?%>", re.DOTALL),
-    "dollar_brace": re.compile(r"\$\{.*?\}", re.DOTALL),
-    "hash_brace": re.compile(r"\#\{.*?\}", re.DOTALL),
-    "template_filters": re.compile(r"\|\s*(safe|join|attr|map|select|system)", re.IGNORECASE),
-    "template_math": re.compile(r"\{\{.*?[\+\-\*/].*?\}\}", re.DOTALL),
-    "triple_curly": re.compile(r"\{\{\{.*?\}\}\}", re.DOTALL),
-    "freemarker_directive": re.compile(r"<#.*?>", re.DOTALL),
-    "dollar_excl_brace": re.compile(r"\$!?\{.*?\}", re.DOTALL),
+    "template_delimiters": re.compile(r'(?s)(\{\{\{.*?\}\}\}|\{\{.*?\}\}|\{\%.*?\%\}|<%.*?%>|\$!?\{.*?\}|\#\{.*?\}|\<\#.*?\>)',re.IGNORECASE),
+    "template_math": re.compile(r'(?s)\{\{[^}]*[+\-*/%]\s*[^}]*\}\}|\$\{[^}]*[+\-*/%]\s*[^}]*\}|\<%[^%]*[+\-*/%][^%]*%>', re.IGNORECASE),
+    "template_filters": re.compile(r'(?i)\|\s*(?:safe|join|attr|map|select|system|sort|replace|tojson|from_json|from_envvar|from_env|json_encode|exec)\b'),
+    "python_magic_attrs": re.compile(r'(?i)(__class__|__mro__|__subclasses__|__globals__|__builtins__|__import__|__dict__|__init__|__base__)\b'),
+    "python_magic_via_attr_or_index": re.compile(r'(?i)(?:\|\s*attr\s*\(|attr\s*\(\s*[\'\"][^\'\"]{2,}[\'\"]\s*\)|\[\s*[\'\"][^\'\"]{2,}[\'\"]\s*\]\s*(?:\.\s*\w+)? )'),
+    "escaped_underscore_sequences": re.compile(r'(?i)(?:%5f|\\x5f|\\u005f|&#95;|\\u00_?5f)'),
+    "obfuscated_keywords": re.compile(r'(?i)(?:' +
+        r'c(?:[\W\\x5f%]|_)*l(?:[\W\\x5f%]|_)*a(?:[\W\\x5f%]|_)*s(?:[\W\\x5f%]|_)*s|' +
+        r'm(?:[\W\\x5f%]|_)*r(?:[\W\\x5f%]|_)*o|' +
+        r'g(?:[\W\\x5f%]|_)*l(?:[\W\\x5f%]|_)*o(?:[\W\\x5f%]|_)*b(?:[\W\\x5f%]|_)*a(?:[\W\\x5f%]|_)*l(?:[\W\\x5f%]|_)*s|' +
+        r'b(?:[\W\\x5f%]|_)*u(?:[\W\\x5f%]|_)*i(?:[\W\\x5f%]|_)*l(?:[\W\\x5f%]|_)*t(?:[\W\\x5f%]|_)*i(?:[\W\\x5f%]|_)*n(?:[\W\\x5f%]|_)*s' +
+        r')',re.IGNORECASE),
+    "python_danger_calls": re.compile(r'(?i)\b(?:os\s*\.\s*popen|os\s*\.\s*system|os\s*\.\s*environ|subprocess(?:\s*\.|s*\()|eval\s*\(|exec\s*\(|open\s*\(|__import__\s*\()',re.IGNORECASE | re.DOTALL),
+    "jinja_cycler_chain": re.compile(r'(?i)cycler\.__init__\.__globals__', re.IGNORECASE),
+    "file_and_include_ops": re.compile(r'(?i)(?:File\.read\s*\(|(?:include|#include)\s*\(|\bFile\.read\b|\.read\(\s*\)|\bopen\s*\()\b',re.IGNORECASE),
+    "base64_and_eval": re.compile(r'(?i)(?:base64\.urlsafe_b64decode|base64\.b64decode|b64decode|urlsafe_b64decode|from_base64).{0,200}(?:eval|exec|popen|__import__)',re.IGNORECASE | re.DOTALL),
+    "freemarker_eval_new": re.compile(r'(?i)\?\s*(?:eval|new|c)\b', re.IGNORECASE),
+    "freemarker_comment": re.compile(r'(?s)<#--.*?-->'),
+    "velocity_directive": re.compile(r'(?i)#\s*(?:set|if|foreach|include|evaluate|parse|macro)\b', re.IGNORECASE),
+    "velocity_include_call": re.compile(r'(?i)#\s*include\s*\(\s*[\$\w"\'\(\)\+\/\:\.]+\s*\)', re.IGNORECASE),
+    "ognl_java": re.compile(r'(?i)@java\.lang\.\w+@', re.IGNORECASE),
+    "jsp_erb": re.compile(r'(?s)<%=?\s*.*?\s*%>'),
+    "ruby_interp": re.compile(r'(?s)#\{.*?\}'),
+    "ognl_expression_ops": re.compile(r'(?i)(?:\+\s*\'\'\+|\'\s*\+\s*1\*|\@java\.lang\.)', re.IGNORECASE),
+    "division_by_zero": re.compile(r'/\s*0\b'),
+    "combined_delimiter_and_keyword": re.compile(r'(?i)(\{\{|\{\%|\$\{|\#\{|\{\{\{)[^}]{0,200}(?:__\w+__|globals|builtins|popen|system|subprocess|eval|exec)', re.IGNORECASE),
+    "percent_or_hex_obfuscation": re.compile(r'(?i)(?:%5f|\\x5f|\\u005f|&#95;|\\u00_?5f)'),
+    "delim_with_dot_or_call": re.compile(r'(?i)(\{\{|\$\{|\#\{|\{\%|<%)[^}]{0,200}(?:\.\w+|\()', re.IGNORECASE),
 }
 
 #XSS regex
@@ -358,6 +370,27 @@ def _strSSTICheck(data: str = "", allowedSymbols: str = "") -> filterReport:
 
     if type(allowedSymbols) != str:
         raise DataFilterException(f"INVALID_INPUT: strSSTICheck expected str as allowedSymbols, instead got {type(allowedSymbols)}")
+        
+    report = filterReport(data = data, type = "SSTI", status = "OK", issecure = True)
+        
+    seen = set()
+    for _ in range(20):
+        decoded = data
+        decoded = unquote_plus(decoded)
+        decoded = html.unescape(decoded)
+        try:
+            decoded = bytes(decoded, "utf-8").decode("unicode_escape")
+        except:
+            pass
+        decoded = re.sub(r"[\x00-\x08\x0b-\x1f\x7f]+", "", decoded)
+        decoded = unicodedata.normalize("NFKC", decoded)
+        h = hashlib.blake2b(decoded.encode("utf-8", "ignore"), digest_size=8).digest()
+        if h in seen:
+            break
+        seen.add(h)
+        if decoded == data:
+            break
+        data = decoded
 
     if allowedSymbols:
         tempdata = data
@@ -365,8 +398,6 @@ def _strSSTICheck(data: str = "", allowedSymbols: str = "") -> filterReport:
             tempdata = tempdata.replace(symbol, "")
         if tempdata:
             return filterReport(data, status = "DETECTED", detections = ["banned_symbol_usage"], issecure = False)
-
-    report = filterReport(data = data, type = "SSTI", status = "OK", issecure = True)
             
     def match_add(name: str) -> None:
         try:
@@ -419,29 +450,34 @@ def _strXSSCheck(data: str = "", allowedSymbols: str = "") -> filterReport:
 
     if type(allowedSymbols) != str:
         raise DataFilterException(f"INVALID_INPUT: strXSSCheck expected str as allowedSymbols, instead got {type(allowedSymbols)}")
+        
+    report = filterReport(data = data, type = "XSS", status = "OK", issecure = True)
 
+    seen = set()
+    for _ in range(20):
+        decoded = data
+        decoded = unquote_plus(decoded)
+        decoded = html.unescape(decoded)
+        try:
+            decoded = bytes(decoded, "utf-8").decode("unicode_escape")
+        except:
+            pass
+        decoded = re.sub(r"[\x00-\x08\x0b-\x1f\x7f]+", "", decoded)
+        decoded = unicodedata.normalize("NFKC", decoded)
+        h = hashlib.blake2b(decoded.encode("utf-8", "ignore"), digest_size=8).digest()
+        if h in seen:
+            break
+        seen.add(h)
+        if decoded == data:
+            break
+        data = decoded
+    
     if allowedSymbols:
         tempdata = data
         for symbol in allowedSymbols:
             tempdata = tempdata.replace(symbol, "")
         if tempdata:
             return filterReport(data, status = "DETECTED", detections = ["banned_symbol_usage"], issecure = False)
-
-    seen = set()
-    for i in range(20):
-        h = hashlib.blake2b(data.encode('utf-8','ignore'), digest_size=8).digest()
-        if h in seen:
-            break
-        seen.add(h)
-        decoded = unquote(data)
-        decoded = html.unescape(decoded)
-        decoded = re.sub(r"[\x00-\x08\x0b-\x1f\x7f]+", "", decoded)
-        decoded = unicodedata.normalize("NFC", decoded)
-        if decoded == data:
-            break
-        data = decoded
-
-    report = filterReport(data = data, type = "XSS", status = "OK", issecure = True)
 
     def match_add(name: str) -> None:
         try:
@@ -493,16 +529,18 @@ def _strMultCheck(data: str = "", allowedSymbols: str = "", modes: list[str] = [
         if _mode not in ["SQLI", "SSTI", "XSS"]:
             raise DataFilterException(f"INVALID_INPUT: strMultCheck got unexpected mode {_mode}, expected SSTI, SQLI or XSS")
     
-    reports = {}
+    report = {}
     _check_funcs={"SQLI":strSQLICheck,"SSTI":strSSTICheck,"XSS":strXSSCheck}
 
     lstatus = ""
     lissecure = True
 
     for _mode in modes:
-        reports[_mode] = _check_funcs[_mode](data, allowedSymbols)
-        lissecure = False if not reports[_mode].issecure else lissecure
-        lstatus = "DETECTED" if reports[_mode].status == "DETECTED" else "FOUND" if reports[_mode].status == "FOUND" else lstatus
-    reports["total_status"] = lstatus
-    reports["total_issecure"] = lissecure
-    reports["total_processtime"] = time_ns() - starttime
+        report[_mode] = _check_funcs[_mode](data, allowedSymbols)
+        lissecure = False if not report[_mode].issecure else lissecure
+        lstatus = "DETECTED" if report[_mode].status == "DETECTED" else "FOUND" if report[_mode].status == "FOUND" else lstatus
+    report["total_status"] = lstatus
+    report["total_issecure"] = lissecure
+    report["total_processtime"] = time_ns() - starttime
+
+    return report
