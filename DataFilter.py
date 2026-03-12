@@ -21,7 +21,7 @@ def set_sqli_timeout(value: float) -> None:
     :type value: float
     """
     global sqli_pattern_time
-    if sqli_pattern_time > 0:
+    if value > 0:
         sqli_pattern_time = value
     else:
         raise DataFilterException("Invalid sqli timeout")
@@ -33,7 +33,7 @@ def set_ssti_timeout(value: float) -> None:
     :type value: float
     """
     global ssti_pattern_time
-    if ssti_pattern_time > 0:
+    if value > 0:
         ssti_pattern_time = value
     else:
         raise DataFilterException("Invalid ssti timeout")
@@ -45,7 +45,7 @@ def set_xss_timeout(value: float) -> None:
     :type value: float
     """
     global xss_pattern_time
-    if xss_pattern_time > 0:
+    if value > 0:
         xss_pattern_time = value
     else:
         raise DataFilterException("Invalid xss timeout")
@@ -503,7 +503,7 @@ def _strXSSCheck(data: str = "", allowedSymbols: str = "") -> filterReport:
 
 
 
-def strMultCheck(data: str = "", allowedSymbols: str = "", modes: list[str] = ["SQLI", "SSTI", "XSS"]) -> dict[str: ...]:
+def strMultCheck(data: str = "", allowedSymbols: str = "", modes: list[str] = ["SQLI", "SSTI", "XSS"]) -> dict:
     """strMultCheck checks data for usage of multiple vulnerabilities listed in modes
 
     :param data: data to be checked
@@ -513,7 +513,7 @@ def strMultCheck(data: str = "", allowedSymbols: str = "", modes: list[str] = ["
     :type allowedSymbols: str, optional
     :raises DataFilterException:
     :return: report for each vulnerability check function, total check time, total issecure and status
-    :rtype: dict[str: ...]
+    :rtype: dict
     """
     try:
         return _strMultCheck(data = data, allowedSymbols = allowedSymbols, modes = modes)
@@ -522,7 +522,7 @@ def strMultCheck(data: str = "", allowedSymbols: str = "", modes: list[str] = ["
 
 
 
-def _strMultCheck(data: str = "", allowedSymbols: str = "", modes: list[str] = ["SQLI", "SSTI", "XSS"]) -> dict[str: ...]:
+def _strMultCheck(data: str = "", allowedSymbols: str = "", modes: list[str] = ["SQLI", "SSTI", "XSS"]) -> dict:
     starttime = time_ns()
 
     for _mode in modes:

@@ -4,6 +4,7 @@ from flask import Flask, request, render_template_string, redirect, url_for, ses
 app = Flask(__name__)
 app.secret_key = "ungu3ss4b13_53cr3t_14b_k3y"
 DB_PATH = "database.db"
+prot = False
 
 def get_db():
     conn = sqlite3.connect(DB_PATH)
@@ -19,7 +20,6 @@ def init_db():
 
 @app.route("/")
 def index():
-    prot = session.get("protection", True)
     return render_template_string("""
     <!DOCTYPE html><html><head><title>DF Lab</title>
     <style>
@@ -41,12 +41,12 @@ def index():
 
 @app.route("/toggle", methods=["POST"])
 def toggle():
-    session["protection"] = not session.get("protection", False)
+    global prot
+    prot = not prot
     return redirect(request.referrer or url_for("index"))
 
 @app.route("/sqli", methods=["GET", "POST"])
 def sqli():
-    prot = session.get("protection", False)
     result = None
     error = None
     if request.method == "POST":
@@ -56,8 +56,7 @@ def sqli():
             if not check.issecure: error = f"Blocked by DataFilter: {check.detections}"
             else:
                 db = get_db()
-                result = db.execute("SELECT notes FROM users WHERE note_title = ?", (q,)).fetchone()
-            print(check.detections)
+                result = db.execute('SELECT notes FROM users WHERE note_title = "{q}"').fetchone()
         else:
             db = get_db()
             try:
@@ -75,7 +74,6 @@ def sqli():
 
 @app.route("/ssti", methods=["GET", "POST"])
 def ssti():
-    prot = session.get("protection", True)
     rendered = ""
     if request.method == "POST":
         tpl = request.form.get("tpl", "")
@@ -84,7 +82,9 @@ def ssti():
             check = DataFilter.strSSTICheck(tpl)
             print(check.detections)
             if not check.issecure: rendered = f"Blocked by DataFilter: {check.detections}"
-            else: rendered = "Safe Mode: Rendering blocked for security in this demo."
+            else: 
+                try: rendered = render_template_string(tpl)
+                except Exception as e: rendered = str(e)
         else:
             try: rendered = render_template_string(tpl)
             except Exception as e: rendered = str(e)
@@ -98,13 +98,12 @@ def ssti():
 
 @app.route("/xss", methods=["GET", "POST"])
 def xss():
-    prot = session.get("protection", False)
     if request.method == "POST":
         title = request.form.get("t", "")
         content = request.form.get("c", "")
         if prot:
-            if DataFilter.strXSSCheck(title).issecure and DataFilter.strXSSCheck(content).issecure:
-                db = get_db(); db.execute("INSERT INTO users (note_title, notes) VALUES (?,?)", (title, content)); db.commit()
+            if DataFilter.strMultCheck(title).issecure and DataFilter.strMultCheck(content).issecure:
+                db = get_db(); db.execute(f"INSERT INTO users (note_title, notes) VALUES ('{title}', '{content}')"); db.commit()
         else:
             db = get_db(); db.execute(f"INSERT INTO users (note_title, notes) VALUES ('{title}', '{content}')"); db.commit()
     
