@@ -10,8 +10,8 @@ from time import time_ns
 from urllib.parse import unquote_plus
 
 #(redefine these variables inside code depending on cpu) max time to process pattern in seconds
-sqli_pattern_time=0.1
-ssti_pattern_time=0.1
+sqli_pattern_time=0.15
+ssti_pattern_time=0.2
 xss_pattern_time=0.2
 
 def set_sqli_timeout(value: float) -> None:

@@ -53,6 +53,7 @@ def sqli():
         q = request.form.get("q", "")
         if prot:
             check = DataFilter.strSQLICheck(q)
+            print(check.detections)
             if not check.issecure: error = f"Blocked by DataFilter: {check.detections}"
             else:
                 db = get_db()
@@ -102,7 +103,16 @@ def xss():
         title = request.form.get("t", "")
         content = request.form.get("c", "")
         if prot:
-            if DataFilter.strMultCheck(title).issecure and DataFilter.strMultCheck(content).issecure:
+            report1 = DataFilter.strMultCheck(title)
+            report2 = DataFilter.strMultCheck(content)
+            print(report1["SQLI"].detections)
+            print(report1["SSTI"].detections)
+            print(report1["XSS"].detections)
+            print("- - - - - - - - - - - - - - - - - - - -")
+            print(report2["SQLI"].detections)
+            print(report2["SSTI"].detections)
+            print(report2["XSS"].detections)
+            if report1["total_issecure"] and report2["total_issecure"]:
                 db = get_db(); db.execute(f"INSERT INTO users (note_title, notes) VALUES ('{title}', '{content}')"); db.commit()
         else:
             db = get_db(); db.execute(f"INSERT INTO users (note_title, notes) VALUES ('{title}', '{content}')"); db.commit()
@@ -124,5 +134,8 @@ def xss():
     """, notes=notes, prot=prot)
 
 if __name__ == "__main__":
+    DataFilter.set_sqli_timeout(0.15)
+    DataFilter.set_ssti_timeout(0.2)
+    DataFilter.set_xss_timeout(0.2)
     if not os.path.exists(DB_PATH): init_db()
     app.run(debug=True, port=12000)
